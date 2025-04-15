@@ -1,33 +1,58 @@
-name: Update HMV Data
+name: Update Video Data Files
 
+# Controls when the workflow will run
 on:
+  # Allows you to run this workflow manually from the Actions tab
+  workflow_dispatch:
+
+  # Runs the workflow automatically on a schedule (e.g., daily at 3:00 AM UTC)
   schedule:
-    - cron: '*/5 * * * *'  # Runs every 5 minutes
-  workflow_dispatch:       # Manual run option
+    - cron: '0 3 * * *' # Adjust the cron schedule as needed (Minute Hour Day Month DayOfWeek)
+
+# Sets permissions for the GITHUB_TOKEN to allow committing changes back
+permissions:
+  contents: write # Required to checkout code and commit/push changes
 
 jobs:
-  update-json:
-    runs-on: ubuntu-latest
+  update-data:
+    runs-on: ubuntu-latest # Use the latest Ubuntu runner
 
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v3
+      # Step 1: Check out the repository code (including the script and existing JSON files)
+      - name: Check out repository
+        uses: actions/checkout@v4 # Use the latest checkout action
 
+      # Step 2: Set up Python environment
       - name: Set up Python
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v5
         with:
-          python-version: '3.11'
+          python-version: '3.10' # Specify your desired Python version
+          cache: 'pip' # Cache pip dependencies for faster runs
 
+      # Step 3: Install Python dependencies from requirements.txt
       - name: Install dependencies
-        run: pip install requests
+        run: pip install -r requirements.txt
 
-      - name: Run scraper
+      # Step 4: Run the Python script to update JSON files
+      # The script itself handles loading, fetching, merging, and saving
+      - name: Run data update script
         run: python scraper.py
 
+      # Step 5: Commit and push any changes made to the JSON files
       - name: Commit and push changes
-        run: |
-            git config user.name "hmv-bot"
-            git config user.email "bot@example.com"
-            git add 2d_hmv.json 3d_hmv.json
-            git commit -m "Auto update JSON files" || echo "No changes to commit"
-            git push https://Sheikh9822:${{ secrets.GH_TOKEN }}@github.com/Sheikh9822/Mania_DB.git
+        uses: stefanzweifel/git-auto-commit-action@v5
+        with:
+          # Required: Message for the commit
+          commit_message: "Automated update of video data files"
+
+          # Optional: Specify the branch to commit to (defaults to the branch the workflow runs on)
+          # branch: main
+
+          # Optional: Only commit changes in specific files or patterns
+          # This ensures only the data files are committed if other files change unexpectedly
+          file_pattern: "*.json"
+
+          # Optional: Commit user and email
+          commit_user_name: github-actions[bot]
+          commit_user_email: 41898282+github-actions[bot]@users.noreply.github.com
+          commit_author: github-actions[bot] <41898282+github-actions[bot]@users.noreply.github.com>
