@@ -1,0 +1,33 @@
+name: Update HMV Data
+
+on:
+  schedule:
+    - cron: '0 */2 * * *'
+  workflow_dispatch:
+
+jobs:
+  update-json:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v3
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+
+    - name: Install dependencies
+      run: pip install requests
+
+    - name: Run scraper
+      run: python scraper.py
+
+    - name: Commit and push changes
+      run: |
+        git config user.name "hmv-bot"
+        git config user.email "bot@example.com"
+        git add 2d_hmv.json 3d_hmv.json
+        git commit -m "Auto update JSON files" || echo "No changes to commit"
+        git push
