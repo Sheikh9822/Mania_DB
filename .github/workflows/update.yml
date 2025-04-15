@@ -7,7 +7,7 @@ on:
 
   # Runs the workflow automatically on a schedule (e.g., daily at 3:00 AM UTC)
   schedule:
-    - cron: '0 3 * * *' # Adjust the cron schedule as needed (Minute Hour Day Month DayOfWeek)
+    - cron: '*/5 * * * *' # Adjust the cron schedule as needed (Minute Hour Day Month DayOfWeek)
 
 # Sets permissions for the GITHUB_TOKEN to allow committing changes back
 permissions:
