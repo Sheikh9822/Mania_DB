@@ -2,7 +2,7 @@ name: Update HMV Data
 
 on:
   schedule:
-  - cron: '*/5 * * * *'
+    - cron: '*/5 * * * *'  # Every 5 minutes
   workflow_dispatch:
 
 jobs:
@@ -10,24 +10,24 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - name: Checkout repository
-      uses: actions/checkout@v3
+      - name: Checkout repository
+        uses: actions/checkout@v3
 
-    - name: Set up Python
-      uses: actions/setup-python@v4
-      with:
-        python-version: '3.11'
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
 
-    - name: Install dependencies
-      run: pip install requests
+      - name: Install dependencies
+        run: pip install requests
 
-    - name: Run scraper
-      run: python scraper.py
+      - name: Run scraper
+        run: python scraper.py
 
-    - name: Commit and push changes
-  run: |
-    git config user.name "hmv-bot"
-    git config user.email "bot@example.com"
-    git add 2d_hmv.json 3d_hmv.json
-    git commit -m "Auto update JSON files" || echo "No changes to commit"
-    git push https://github.com/${{ secrets.GITHUB_ACTOR }}:${{ secrets.GH_TOKEN }}@github.com/Sheikh9822/Mania_DB.git
+      - name: Commit and push changes
+        run: |
+          git config user.name "hmv-bot"
+          git config user.email "bot@example.com"
+          git add 2d_hmv.json 3d_hmv.json
+          git commit -m "Auto update JSON files" || echo "No changes to commit"
+          git push https://github.com/${{ secrets.GITHUB_ACTOR }}:${{ secrets.GH_TOKEN }}@github.com/Sheikh9822/Mania_DB.git
