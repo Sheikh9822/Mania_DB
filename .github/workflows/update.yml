@@ -1,3 +1,5 @@
+# .github/workflows/update_data.yml (or your chosen filename)
+
 name: Update Video Data Files and Push to Mania JSON
 
 # Controls when the workflow will run
@@ -5,90 +7,98 @@ on:
   # Allows you to run this workflow manually from the Actions tab
   workflow_dispatch:
 
-  # Runs the workflow automatically on a schedule (e.g., every 6 hours)
+  # Runs the workflow automatically every 5 minutes
   schedule:
-    - cron: '*/5 * * * *' # Adjust the cron schedule as needed (Minute Hour Day Month DayOfWeek)
+    - cron: '*/5 * * * *'
 
 # Sets permissions for the GITHUB_TOKEN for the primary repository
 permissions:
-  contents: write # Required to checkout code and commit/push changes to the *current* repo
+  contents: write # Required to checkout code and commit/push changes to the *current* (primary) repo
 
 jobs:
-  update-and-push: # Renamed job for clarity
-    runs-on: ubuntu-latest # Use the latest Ubuntu runner
+  update-and-push:
+    runs-on: ubuntu-latest
 
     steps:
-      # === Steps for the primary repository ===
+      # === Steps for the primary repository (e.g., Mania_DB) ===
 
       # Step 1: Check out the primary repository code
       - name: Check out primary repository
-        uses: actions/checkout@v4 # Checks out the repo where the workflow runs
+        uses: actions/checkout@v4
+        # Checks out the repo where this workflow file lives
 
       # Step 2: Set up Python environment
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: '3.12' # Specify your desired Python version
-          cache: 'pip' # Cache pip dependencies for faster runs
+          python-version: '3.12' # Or your required Python version
+          cache: 'pip'
 
       # Step 3: Install Python dependencies from requirements.txt
       - name: Install dependencies
         run: pip install -r requirements.txt
 
       # Step 4: Run the Python script to update JSON files in the workspace
+      # Assumes scraper.py generates/updates *.json files in the root directory
       - name: Run data update script
         run: python scraper.py
-        # This script should generate/update *.json files in the root or a known directory
 
       # Step 5: Commit and push changes to the primary repository
+      # Note: If scraper.py doesn't change any *.json files, this step will report
+      # "Working tree clean. Nothing to commit.", which is normal in that case.
       - name: Commit and push changes (Primary Repo)
         uses: stefanzweifel/git-auto-commit-action@v5
         with:
           commit_message: "Automated update of video data files (primary repo)"
-          # branch: main # Optional: specify branch if not default
-          file_pattern: "*.json" # Only commit JSON files
+          # Only commit changes to .json files in the root of the primary repo checkout
+          file_pattern: "*.json"
           commit_user_name: github-actions[bot]
           commit_user_email: 41898282+github-actions[bot]@users.noreply.github.com
           commit_author: github-actions[bot] <41898282+github-actions[bot]@users.noreply.github.com>
+          # Pushes to the branch the workflow is running on in the primary repo
 
-      # === Steps for the mania_json repository ===
+      # === Steps for the secondary repository (mania_json) ===
 
       # Step 6: Check out the mania_json repository
       - name: Check out mania_json repository
         uses: actions/checkout@v4
         with:
-          # Replace 'YourUsername/mania_json' with the actual owner/repo name
+          # The repository to check out
           repository: Sheikh9822/mania_json
-          # Use the PAT stored in secrets for authentication
+          # Use the PAT secret for authentication
           token: ${{ secrets.MANIA_JSON_PAT }}
-          # Check out the target repo into a specific directory to avoid conflicts
+          # Checkout into a specific subdirectory to avoid conflicts
           path: mania_json_repo
+          # *** IMPORTANT: Specify the correct branch name in mania_json ***
+          # Replace 'master' with the actual branch name (e.g., main, master, data-files)
+          ref: master
 
       # Step 7: Copy updated JSON files to the mania_json checkout directory
-      # Adjust the source path if your script saves JSON files elsewhere
       - name: Copy JSON files to mania_json checkout
         run: |
-          echo "Copying JSON files..."
-          # Use find to safely handle cases where no JSON files were generated
-          find . -maxdepth 1 -name '*.json' -exec cp {} mania_json_repo/ \;
-          echo "Copy complete."
+          echo "Looking for JSON files in the primary repo root: $(pwd)"
+          echo "Copying JSON files to mania_json checkout directory..."
+          # Find JSON files only in the root of the primary checkout (.) and copy them
+          # Safely handles cases where no JSON files were generated/modified
+          find . -maxdepth 1 -name '*.json' -exec cp -v {} mania_json_repo/ \;
+          echo "Copy complete. Contents of mania_json_repo:"
+          ls -l mania_json_repo/
 
       # Step 8: Commit and push changes to the mania_json repository
       - name: Commit and push changes (mania_json Repo)
         uses: stefanzweifel/git-auto-commit-action@v5
         with:
           commit_message: "Automated update of video data files"
-          # Specify the path to the checked-out mania_json repo
+          # Tell the action to work inside the mania_json_repo subdirectory
           repository: mania_json_repo
-          # Optional: Specify the branch in mania_json if it's not the default (e.g., main or master)
-          # branch: data-branch
-          # Ensure only JSON files are committed in the target repo as well
+          # *** IMPORTANT: Specify the same branch name used in Step 6 ***
+          # Replace 'master' with the actual branch name (e.g., main, master, data-files)
+          branch: master
+          # Only commit .json files within the mania_json_repo directory
           file_pattern: "*.json"
           commit_user_name: github-actions[bot]
           commit_user_email: 41898282+github-actions[bot]@users.noreply.github.com
           commit_author: github-actions[bot] <41898282+github-actions[bot]@users.noreply.github.com>
-          # Important: Prevent tagging in the target repo unless desired
+          # Options often helpful when working in a subdirectory checkout
           skip_tag: true
-          # Important: Prevent pushing tags unless needed for this specific commit
-          push_options: '--force-with-lease' # Optional: Use force-with-lease if necessary, be cautious
-          skip_dirty_check: true # Often needed when working in a subdirectory checkout like this
+          skip_dirty_check: true
