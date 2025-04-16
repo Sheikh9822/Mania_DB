@@ -69,9 +69,10 @@ jobs:
           token: ${{ secrets.MANIA_JSON_PAT }}
           # Checkout into a specific subdirectory to avoid conflicts
           path: mania_json_repo
-          # *** IMPORTANT: Specify the correct branch name in mania_json ***
-          # Replace 'master' with the actual branch name (e.g., main, master, data-files)
-          ref: master
+          # *** CRITICAL FIX: Assuming the branch is 'main'. Verify this! ***
+          # Replace 'main' below if your branch in mania_json has a different name.
+          # Also ensure this branch is NOT empty (has at least one commit).
+          ref: main
 
       # Step 7: Copy updated JSON files to the mania_json checkout directory
       - name: Copy JSON files to mania_json checkout
@@ -91,9 +92,9 @@ jobs:
           commit_message: "Automated update of video data files"
           # Tell the action to work inside the mania_json_repo subdirectory
           repository: mania_json_repo
-          # *** IMPORTANT: Specify the same branch name used in Step 6 ***
-          # Replace 'master' with the actual branch name (e.g., main, master, data-files)
-          branch: master
+          # *** CRITICAL FIX: Use the same branch name specified in Step 6 ('ref') ***
+          # Replace 'main' below if your branch in mania_json has a different name.
+          branch: main
           # Only commit .json files within the mania_json_repo directory
           file_pattern: "*.json"
           commit_user_name: github-actions[bot]
