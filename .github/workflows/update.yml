@@ -1,19 +1,14 @@
-# .github/workflows/update_data.yml (or your chosen filename)
+# .github/workflows/update_data.yml
 
 name: Update Video Data Files and Push to Mania JSON
 
-# Controls when the workflow will run
 on:
-  # Allows you to run this workflow manually from the Actions tab
   workflow_dispatch:
-
-  # Runs the workflow automatically every 5 minutes
   schedule:
     - cron: '*/5 * * * *'
 
-# Sets permissions for the GITHUB_TOKEN for the primary repository
 permissions:
-  contents: write # Required to checkout code and commit/push changes to the *current* (primary) repo
+  contents: write # For the primary repo
 
 jobs:
   update-and-push:
@@ -21,85 +16,84 @@ jobs:
 
     steps:
       # === Steps for the primary repository (e.g., Mania_DB) ===
-
-      # Step 1: Check out the primary repository code
       - name: Check out primary repository
         uses: actions/checkout@v4
-        # Checks out the repo where this workflow file lives
 
-      # Step 2: Set up Python environment
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: '3.12' # Or your required Python version
+          python-version: '3.12'
           cache: 'pip'
 
-      # Step 3: Install Python dependencies from requirements.txt
       - name: Install dependencies
         run: pip install -r requirements.txt
 
-      # Step 4: Run the Python script to update JSON files in the workspace
-      # Assumes scraper.py generates/updates *.json files in the root directory
       - name: Run data update script
         run: python scraper.py
 
-      # Step 5: Commit and push changes to the primary repository
-      # Note: If scraper.py doesn't change any *.json files, this step will report
-      # "Working tree clean. Nothing to commit.", which is normal in that case.
       - name: Commit and push changes (Primary Repo)
         uses: stefanzweifel/git-auto-commit-action@v5
         with:
           commit_message: "Automated update of video data files (primary repo)"
-          # Only commit changes to .json files in the root of the primary repo checkout
-          file_pattern: "*.json"
+          file_pattern: "*.json" # Only json files in root
           commit_user_name: github-actions[bot]
           commit_user_email: 41898282+github-actions[bot]@users.noreply.github.com
           commit_author: github-actions[bot] <41898282+github-actions[bot]@users.noreply.github.com>
-          # Pushes to the branch the workflow is running on in the primary repo
+        # This action should handle "nothing to commit" gracefully for the primary repo
 
       # === Steps for the secondary repository (mania_json) ===
-
-      # Step 6: Check out the mania_json repository
       - name: Check out mania_json repository
         uses: actions/checkout@v4
         with:
-          # The repository to check out
           repository: Sheikh9822/mania_json
-          # Use the PAT secret for authentication
           token: ${{ secrets.MANIA_JSON_PAT }}
-          # Checkout into a specific subdirectory to avoid conflicts
           path: mania_json_repo
-          # *** CRITICAL FIX: Assuming the branch is 'main'. Verify this! ***
-          # Replace 'main' below if your branch in mania_json has a different name.
-          # Also ensure this branch is NOT empty (has at least one commit).
+          # *** Ensure 'main' is the correct branch name for mania_json ***
           ref: main
 
-      # Step 7: Copy updated JSON files to the mania_json checkout directory
       - name: Copy JSON files to mania_json checkout
         run: |
           echo "Looking for JSON files in the primary repo root: $(pwd)"
           echo "Copying JSON files to mania_json checkout directory..."
-          # Find JSON files only in the root of the primary checkout (.) and copy them
-          # Safely handles cases where no JSON files were generated/modified
           find . -maxdepth 1 -name '*.json' -exec cp -v {} mania_json_repo/ \;
           echo "Copy complete. Contents of mania_json_repo:"
           ls -l mania_json_repo/
 
-      # Step 8: Commit and push changes to the mania_json repository
+      # Step 7.5: Check specifically if JSON files changed in mania_json repo
+      - name: Check for JSON changes in mania_json repo
+        id: check_json_changes # Give the step an ID to reference its output
+        working-directory: ./mania_json_repo # Run commands inside the checked-out repo
+        run: |
+          # Add all JSON files. Use || true to prevent error if no *.json files exist
+          git add *.json || true
+
+          # Check if there are any staged changes
+          # git diff --staged --quiet exits 0 if no changes, 1 if changes
+          if git diff --staged --quiet; then
+            echo "No JSON changes detected in mania_json_repo."
+            echo "has_changes=false" >> $GITHUB_OUTPUT
+          else
+            echo "JSON changes detected in mania_json_repo."
+            echo "has_changes=true" >> $GITHUB_OUTPUT
+          fi
+
+      # Step 8: Commit and push changes ONLY IF changes were detected in Step 7.5
       - name: Commit and push changes (mania_json Repo)
+        # Only run this step if the previous step detected changes
+        if: steps.check_json_changes.outputs.has_changes == 'true'
         uses: stefanzweifel/git-auto-commit-action@v5
         with:
           commit_message: "Automated update of video data files"
-          # Tell the action to work inside the mania_json_repo subdirectory
-          repository: mania_json_repo
-          # *** CRITICAL FIX: Use the same branch name specified in Step 6 ('ref') ***
-          # Replace 'main' below if your branch in mania_json has a different name.
+          repository: mania_json_repo # Operate within this directory
+          # *** Ensure 'main' is the correct branch name ***
           branch: main
-          # Only commit .json files within the mania_json_repo directory
+          # The 'add' was already done in the previous step, but file_pattern here
+          # helps confirm *what* should be committed if the action were doing the add.
+          # It might be redundant now but doesn't hurt.
           file_pattern: "*.json"
           commit_user_name: github-actions[bot]
           commit_user_email: 41898282+github-actions[bot]@users.noreply.github.com
           commit_author: github-actions[bot] <41898282+github-actions[bot]@users.noreply.github.com>
-          # Options often helpful when working in a subdirectory checkout
-          skip_tag: true
+          # Removed invalid 'skip_tag'. Keep 'skip_dirty_check' if needed, but
+          # the explicit check might make it less necessary. It's a valid input.
           skip_dirty_check: true
