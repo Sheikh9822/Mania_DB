@@ -12,7 +12,7 @@ CATEGORIES = {
     "2d_hmv": "2d_hmv.json",
     "3d_hmv": "3d_hmv.json",
 }
-LATEST_PAGES_TO_SCRAPE = 5  # How many of the newest pages to check for updates
+LATEST_PAGES_TO_SCRAPE = 3  # How many of the newest pages to check for updates
 BASE_LIST_URL_TEMPLATE = "https://mania_v1.cloud-dl.workers.dev/{category}?page={page}"
 BASE_DETAIL_URL = "https://mania_v1.cloud-dl.workers.dev/video/"
 MAX_WORKERS = 10
