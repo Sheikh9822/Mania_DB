@@ -1,26 +1,28 @@
-name: Update Video Data Files
+name: Update Video Data Files and Push to Mania JSON
 
 # Controls when the workflow will run
 on:
   # Allows you to run this workflow manually from the Actions tab
   workflow_dispatch:
 
-  # Runs the workflow automatically on a schedule (e.g., daily at 3:00 AM UTC)
+  # Runs the workflow automatically on a schedule (e.g., every 6 hours)
   schedule:
     - cron: '0 */6 * * *' # Adjust the cron schedule as needed (Minute Hour Day Month DayOfWeek)
 
-# Sets permissions for the GITHUB_TOKEN to allow committing changes back
+# Sets permissions for the GITHUB_TOKEN for the primary repository
 permissions:
-  contents: write # Required to checkout code and commit/push changes
+  contents: write # Required to checkout code and commit/push changes to the *current* repo
 
 jobs:
-  update-data:
+  update-and-push: # Renamed job for clarity
     runs-on: ubuntu-latest # Use the latest Ubuntu runner
 
     steps:
-      # Step 1: Check out the repository code (including the script and existing JSON files)
-      - name: Check out repository
-        uses: actions/checkout@v4 # Use the latest checkout action
+      # === Steps for the primary repository ===
+
+      # Step 1: Check out the primary repository code
+      - name: Check out primary repository
+        uses: actions/checkout@v4 # Checks out the repo where the workflow runs
 
       # Step 2: Set up Python environment
       - name: Set up Python
@@ -33,26 +35,60 @@ jobs:
       - name: Install dependencies
         run: pip install -r requirements.txt
 
-      # Step 4: Run the Python script to update JSON files
-      # The script itself handles loading, fetching, merging, and saving
+      # Step 4: Run the Python script to update JSON files in the workspace
       - name: Run data update script
         run: python scraper.py
+        # This script should generate/update *.json files in the root or a known directory
 
-      # Step 5: Commit and push any changes made to the JSON files
-      - name: Commit and push changes
+      # Step 5: Commit and push changes to the primary repository
+      - name: Commit and push changes (Primary Repo)
         uses: stefanzweifel/git-auto-commit-action@v5
         with:
-          # Required: Message for the commit
-          commit_message: "Automated update of video data files"
-
-          # Optional: Specify the branch to commit to (defaults to the branch the workflow runs on)
-          # branch: main
-
-          # Optional: Only commit changes in specific files or patterns
-          # This ensures only the data files are committed if other files change unexpectedly
-          file_pattern: "*.json"
-
-          # Optional: Commit user and email
+          commit_message: "Automated update of video data files (primary repo)"
+          # branch: main # Optional: specify branch if not default
+          file_pattern: "*.json" # Only commit JSON files
           commit_user_name: github-actions[bot]
           commit_user_email: 41898282+github-actions[bot]@users.noreply.github.com
           commit_author: github-actions[bot] <41898282+github-actions[bot]@users.noreply.github.com>
+
+      # === Steps for the mania_json repository ===
+
+      # Step 6: Check out the mania_json repository
+      - name: Check out mania_json repository
+        uses: actions/checkout@v4
+        with:
+          # Replace 'YourUsername/mania_json' with the actual owner/repo name
+          repository: Sheikh9822/mania_json
+          # Use the PAT stored in secrets for authentication
+          token: ${{ secrets.MANIA_JSON_PAT }}
+          # Check out the target repo into a specific directory to avoid conflicts
+          path: mania_json_repo
+
+      # Step 7: Copy updated JSON files to the mania_json checkout directory
+      # Adjust the source path if your script saves JSON files elsewhere
+      - name: Copy JSON files to mania_json checkout
+        run: |
+          echo "Copying JSON files..."
+          # Use find to safely handle cases where no JSON files were generated
+          find . -maxdepth 1 -name '*.json' -exec cp {} mania_json_repo/ \;
+          echo "Copy complete."
+
+      # Step 8: Commit and push changes to the mania_json repository
+      - name: Commit and push changes (mania_json Repo)
+        uses: stefanzweifel/git-auto-commit-action@v5
+        with:
+          commit_message: "Automated update of video data files"
+          # Specify the path to the checked-out mania_json repo
+          repository: mania_json_repo
+          # Optional: Specify the branch in mania_json if it's not the default (e.g., main or master)
+          # branch: data-branch
+          # Ensure only JSON files are committed in the target repo as well
+          file_pattern: "*.json"
+          commit_user_name: github-actions[bot]
+          commit_user_email: 41898282+github-actions[bot]@users.noreply.github.com
+          commit_author: github-actions[bot] <41898282+github-actions[bot]@users.noreply.github.com>
+          # Important: Prevent tagging in the target repo unless desired
+          skip_tag: true
+          # Important: Prevent pushing tags unless needed for this specific commit
+          push_options: '--force-with-lease' # Optional: Use force-with-lease if necessary, be cautious
+          skip_dirty_check: true # Often needed when working in a subdirectory checkout like this
